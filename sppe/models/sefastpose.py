@@ -20,20 +20,20 @@ class FastPose_SE(HybridBlock):
     load_from_pytorch = _load_from_pytorch
     deconv_dim = 256
 
-    def reload_base(self, ctx=mx.cpu()):
+    def reload_base(self, model_folder='../exp/pretrain', ctx=mx.cpu()):
         if opt.use_pretrained_base:
-            print('===Pretrain Base===')
+            # print('===Pretrain Base===')
             from gluoncv.model_zoo import get_model
             # self.preact.initialize(mx.init.MSRAPrelu(), ctx=ctx)
             base_network = get_model('resnet101_v1b', pretrained=True, root='../exp/pretrain', ctx=ctx)
 
             self.preact.try_load_parameters(model=base_network, ctx=ctx)
 
-    def __init__(self, ctx=mx.cpu(), pretrained=True, **kwargs):
+    def __init__(self, ctx=mx.cpu(), model_folder='models', pretrained=True, **kwargs):
         super(FastPose_SE, self).__init__()
 
         self.preact = SEResnet('resnet101', norm_layer=norm_layer, **kwargs)
-        self.reload_base()
+        self.reload_base(model_folder)
 
         self.shuffle1 = PixelShuffle(2)
         self.duc1 = DUC(1024, upscale_factor=2, norm_layer=norm_layer, **kwargs)
