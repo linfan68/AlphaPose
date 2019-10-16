@@ -55,4 +55,5 @@ class FastPose_SE(HybridBlock):
         x = self.duc2(x)
 
         x = self.conv_out(x)
+
         return x

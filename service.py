@@ -13,10 +13,17 @@ os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
 # overwrite
 opt.nClasses = 33
-opt.inp_dim = 128
 
-# ctx = mx.gpu()
-ctx = mx.cpu()
+# person detection will run inference at inp_dim * inp_dim
+opt.inp_dim = 192
+
+# single pose estimation will run inference at inputResH * inputResW
+# tested: size smaller than 256 * 192 will cause precision loss
+opt.inputResH = 256
+opt.inputResW = 192
+
+ctx = mx.gpu()
+# ctx = mx.cpu()
 
 def get_detect_net():
   # model config
@@ -155,7 +162,9 @@ def get_batched_image(image):
 
   tensor_batch = mx.nd.concatenate(tensor_batch, axis=0)
   img_size_batch = mx.nd.array(img_size_batch, dtype='float32')
+
   img_size_batch = img_size_batch.tile(reps=[1, 2])
+
 
   return (tensor_batch, img_batch, img_size_batch, img_name_list)
 
@@ -171,7 +180,6 @@ def detect(net, person_idx, batched_image):
   q = []
 
   for i in range(scores.shape[0]):
-    # q.append(())
     img, boxes, class_idxs, scores, img_name, img_size = img_batch[i], boxes[i], class_idxs[i, :, 0], scores[i, :, 0], img_name_list[i], img_size_batch[i]
 
     # rescale coordinates
@@ -265,8 +273,9 @@ def crop(detected_queue):
     if boxes is None:
       q.append((None, img, None, None, None, None, img_name))
       continue
-    
+
     tensors, pt1, pt2 = crop_fn(img, boxes)
+
     q.append((tensors, img, boxes, scores, pt1, pt2, img_name))
 
   return q
@@ -337,7 +346,7 @@ def estimate(enet, cropped_queue):
       heatmap_batch = enet(tensor_batch.copyto(ctx))
       heatmap_batch = heatmap_batch[:, :17, :, :]
       heatmaps.append(heatmap_batch.copyto(mx.cpu()))
-    
+
     # coordinate transformation
     heatmaps = mx.nd.concatenate(heatmaps, axis=0)
     pose_hms, pose_coords, pose_scores = transform_fn(heatmaps, pt1, pt2, opt.inputResH, opt.inputResW, opt.outputResH, opt.outputResW)
@@ -358,6 +367,8 @@ def process(estimated_queue):
     final_result, boxes, box_scores = pose_nms(boxes.asnumpy(),
                                                 box_scores.asnumpy(),
                                                 pose_coords.asnumpy(), pose_scores.asnumpy())
+    # print(final_result)
+
 
     q.append((final_result, boxes, box_scores, img_name))
 
@@ -407,20 +418,24 @@ def parse_results(results):
   return ps
 
 def inference_test(img_name, net, person_idx, enet):
-
+  form = lambda x: str(round(x * 1000, 2)).rjust(6) + ' ms'
   batched_image = get_batched_image_from_name(img_name)
+
   t0 = time.time()
   detected_queue = detect(net, person_idx, batched_image)
   t1 = time.time()
-  cropped_queue = crop(detected_queue)
-  estimated_queue = estimate(enet, cropped_queue)
-  t2 = time.time()
+  print('\n', ' detect:', form(t1-t0))
 
-  form = lambda x: str(round(x * 1000, 2)).rjust(6)
-  print(form(t2-t1), form(t1-t0))
+  cropped_queue = crop(detected_queue)
+
+  t2 = time.time()
+  estimated_queue = estimate(enet, cropped_queue)
+  t3 = time.time()
+  print('estimate:', form(t3-t2))
 
   results = process(estimated_queue)
   persons = parse_results(results)
+  # print(persons)
   return persons
 
 def inference(img, net, person_idx, enet):
@@ -429,7 +444,7 @@ def inference(img, net, person_idx, enet):
   cropped_queue = crop(detected_queue)
   estimated_queue = estimate(enet, cropped_queue)
   results = process(estimated_queue)
-  persons = parse_results(results)
+  persons = parse_results(results) 
   return persons
 
 if __name__ == "__main__":
