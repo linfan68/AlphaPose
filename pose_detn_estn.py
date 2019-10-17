@@ -116,7 +116,7 @@ class PoseDetnEstnService(object):
         results = process(inference_output)
         # return ["OK"] * self._batch_size
         persons = parse_results(results) 
-        return persons
+        return [persons]
 
     def handle(self, data, context):
         """
