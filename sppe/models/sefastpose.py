@@ -25,7 +25,7 @@ class FastPose_SE(HybridBlock):
             # print('===Pretrain Base===')
             from gluoncv.model_zoo import get_model
             # self.preact.initialize(mx.init.MSRAPrelu(), ctx=ctx)
-            base_network = get_model('resnet101_v1b', pretrained=True, root='../exp/pretrain', ctx=ctx)
+            base_network = get_model('resnet101_v1b', pretrained=True, root=model_folder, ctx=ctx)
 
             self.preact.try_load_parameters(model=base_network, ctx=ctx)
 
