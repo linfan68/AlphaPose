@@ -1,15 +1,15 @@
 from opt import opt
 from service import *
 # overwrite
-opt.nClasses = 33
+# opt.nClasses = 33
 
 # person detection will run inference at inp_dim * inp_dim
-opt.inp_dim = 192
+# opt.inp_dim = 192
 
 # single pose estimation will run inference at inputResH * inputResW
 # tested: size smaller than 256 * 192 will cause precision loss
-opt.inputResH = 256
-opt.inputResW = 192
+# opt.inputResH = 256
+# opt.inputResW = 192
 
 class PoseDetnEstnService(object):
 
@@ -29,6 +29,7 @@ class PoseDetnEstnService(object):
         :param context: Initial context contains model server system properties.
         :return:
         """
+        print('PoseDetnEstnService: ', opt)
         self._context = context
 
         self._batch_size = context.system_properties["batch_size"]

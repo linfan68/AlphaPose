@@ -11,16 +11,21 @@ from pose_utils import pose_nms
 from sppe.models.sefastpose import FastPose_SE
 os.environ['MXNET_CUDNN_AUTOTUNE_DEFAULT'] = '0'
 
+
 # overwrite
 opt.nClasses = 33
 
 # person detection will run inference at inp_dim * inp_dim
-opt.inp_dim = 192
+opt.inp_dim = int(os.environ.get('INP_DIM', '192'))
 
 # single pose estimation will run inference at inputResH * inputResW
 # tested: size smaller than 256 * 192 will cause precision loss
-opt.inputResH = 256
-opt.inputResW = 192
+opt.inputResH = int(os.environ.get('INPUT_RES_H', '256'))
+opt.inputResW = int(os.environ.get('INPUT_RES_W', '192'))
+opt.outputResH = opt.inputResH // 4
+opt.outputResW = opt.inputResW // 4
+
+print('current options: ', opt)
 
 ctx = mx.gpu()
 # ctx = mx.cpu()
@@ -198,6 +203,7 @@ def detect(net, person_idx, batched_image):
     if picked_idxs.shape[0] == 0:
       q.append((img, None, None, img_name))
     else:
+      print('PPL detected: ', boxes[picked_idxs], scores[picked_idxs], img_name)
       q.append((img, boxes[picked_idxs], scores[picked_idxs], img_name))
 
   return q
@@ -352,6 +358,7 @@ def estimate(enet, cropped_queue):
     pose_hms, pose_coords, pose_scores = transform_fn(heatmaps, pt1, pt2, opt.inputResH, opt.inputResW, opt.outputResH, opt.outputResW)
     q.append((img, boxes, box_scores, pose_coords, pose_scores, img_name))
 
+  print('estimated len(q):', len(q))
   return q
 
 def process(estimated_queue):
@@ -430,11 +437,11 @@ def inference_test(img_name, net, person_idx, enet):
 
   t2 = time.time()
   estimated_queue = estimate(enet, cropped_queue)
+  results = process(estimated_queue)
+  persons = parse_results(results)
   t3 = time.time()
   print('estimate:', form(t3-t2))
 
-  results = process(estimated_queue)
-  persons = parse_results(results)
   # print(persons)
   return persons
 
@@ -452,10 +459,10 @@ if __name__ == "__main__":
   enet = get_estimate_net()
   net, person_idx = get_detect_net()
 
-  img_name = './examples/demo/sample_tiny.jpg'
+  img_name = './examples/demo/000033.jpg'
 
   persons = []
-  for i in range(10):
-    persons = inference_test(img_name, net, person_idx, enet)
+  # for i in range(10):
+  persons = inference_test(img_name, net, person_idx, enet)
 
   print(persons)
