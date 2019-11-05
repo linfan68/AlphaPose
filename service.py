@@ -17,6 +17,7 @@ opt.nClasses = 33
 
 # person detection will run inference at inp_dim * inp_dim
 opt.inp_dim = int(os.environ.get('INP_DIM', '192'))
+use_cpu = int(os.environ.get('USE_CPU', '0'))
 
 # single pose estimation will run inference at inputResH * inputResW
 # tested: size smaller than 256 * 192 will cause precision loss
@@ -27,8 +28,10 @@ opt.outputResW = opt.inputResW // 4
 
 print('current options: ', opt)
 
-ctx = mx.gpu()
-# ctx = mx.cpu()
+if not use_cpu:
+  ctx = mx.gpu()
+else:
+  ctx = mx.cpu()
 
 def get_detect_net():
   # model config
